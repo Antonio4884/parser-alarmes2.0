@@ -95,7 +95,7 @@ export default function App() {
         margin: '0 auto',
       }}
     >
-      <h1>🔧 Organizador de Alarmes</h1>
+      <h1>🔧 Interfaces Convencional</h1>
 
       <textarea
         value={entrada}
