@@ -5,26 +5,38 @@ function extrairDados(linha) {
   if (!hostMatch) return null;
   const host = hostMatch[1];
 
-  const intfMatch = linha.match(/eth-(\d+\/\d+)/);
+  // captura qualquer interface antes do "("
+  const intfMatch = linha.match(/Interface\s+([^(]+)\(/);
   if (!intfMatch) return null;
-  const interfaceName = intfMatch[1];
+  const interfaceName = intfMatch[1].trim();
 
   let cli = 'UNKNOWN';
-  const cliMatch = linha.match(/CLI:([^\s#\)]*)/);
+  const cliMatch = linha.match(/CLI:([^\s#\)]+)/);
   if (cliMatch) {
     cli = cliMatch[1];
   } else {
-    const altMatch = linha.match(/\(([^)]+)\)/);
+    const altMatch = linha.match(/\(##CLI:([^#\)]+)##\)/);
     if (altMatch) cli = altMatch[1];
   }
 
   cli = cli.split(/[\s*]/)[0];
+
   return { host, interfaceName, cli };
 }
 
+// ordenação inteligente para qualquer tipo de interface
 function ordenarInterface(interfaceName) {
-  const [a, b] = interfaceName.split('/').map(Number);
-  return a * 1000 + b;
+  const numeros = interfaceName.match(/(\d+)\/(\d+)(?:\/(\d+))?/);
+
+  if (!numeros) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+
+  const a = parseInt(numeros[1] || 0, 10);
+  const b = parseInt(numeros[2] || 0, 10);
+  const c = parseInt(numeros[3] || 0, 10);
+
+  return a * 100000 + b * 100 + (c || 0);
 }
 
 function processarAlarmes(texto) {
@@ -67,10 +79,8 @@ IP: XXXXXXXXXXXXXXX
       saida += `${host}\n`;
 
       dados[host]
-        .sort(
-          (a, b) =>
-            ordenarInterface(a.interfaceName) -
-            ordenarInterface(b.interfaceName)
+        .sort((a, b) =>
+          ordenarInterface(a.interfaceName) - ordenarInterface(b.interfaceName)
         )
         .forEach(({ interfaceName, cli }) => {
           saida += `${interfaceName} CLI:${cli}\n`;
@@ -87,26 +97,14 @@ export default function App() {
   const [resultado, setResultado] = useState('');
 
   return (
-    <div
-      style={{
-        padding: '20px',
-        fontFamily: 'Arial',
-        maxWidth: '1000px',
-        margin: '0 auto',
-      }}
-    >
+    <div style={{ padding: '20px', fontFamily: 'Arial', maxWidth: '1000px', margin: '0 auto' }}>
       <h1>🔧 Interfaces Convencional</h1>
 
       <textarea
         value={entrada}
         onChange={(e) => setEntrada(e.target.value)}
         placeholder="Cole os alarmes aqui..."
-        style={{
-          width: '100%',
-          height: '250px',
-          padding: '10px',
-          marginBottom: '10px',
-        }}
+        style={{ width: '100%', height: '250px', padding: '10px', marginBottom: '10px' }}
       />
 
       <div style={{ marginBottom: '10px' }}>
@@ -132,11 +130,7 @@ export default function App() {
         value={resultado}
         readOnly
         placeholder="Resultado aparecerá aqui..."
-        style={{
-          width: '100%',
-          height: '250px',
-          padding: '10px',
-        }}
+        style={{ width: '100%', height: '250px', padding: '10px' }}
       />
     </div>
   );
