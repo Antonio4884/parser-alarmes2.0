@@ -103,7 +103,7 @@ Alarme: loss
 Data/Hora: ${horarioPrincipal} BRT
 IP: XXXXXXXXXXXXXXX
 
-41-3318-7732 - Op.4
+Fone NOC 3318-7890
 
 `;
 
