@@ -112,38 +112,28 @@ Fone NOC 3318-7890
 // MÓDULO: ÓPTICA / PON
 // ═════════════════════════════════════════════════════════
 
-// ─────────────────────────────────────────────
-// DETECÇÃO DE GERÊNCIA
-// ─────────────────────────────────────────────
 function detectarGerencia(linhas) {
   for (const linha of linhas) {
     const l = linha.toLowerCase();
 
-    // AMS5520 – Primária CSV (PON Port sem ONT na mesma linha)
     if (l.includes('pon port:') && l.includes('.lt') && l.includes('.pon') && !l.includes('.ont')) {
       return 'PRIMARIA_CSV';
     }
 
-    // AMS5520 – Secundária (ONT: com .lt e .pon e .ont)
     if (l.includes('ont:') && l.includes('.lt') && l.includes('.pon') && l.includes('.ont')) {
       return 'AMS';
     }
 
-    // AMS5520 – SFP
     if (l.includes('ethernet lt port:')) return 'AMS_SFP';
 
-    // iMaster – Primária (feeder fiber)
     if (l.includes('the feeder fiber is broken')) return 'IMASTER_PRIMARIA';
 
-    // iMaster – Secundária (distribute fiber ou ONUID)
     if (l.includes('the distribute fiber is broken') || l.includes('onuid=')) {
       return 'IMASTER';
     }
 
-    // ZTE
     if (l.includes('c600') || l.includes('rack=')) return 'ZTE';
 
-    // UNM2000 – tem tabulações e padrão /GC ou /PON
     if (
       linha.includes('\t') &&
       (l.includes('off line') || l.includes('link_loss') || l.includes('link loss')) &&
@@ -156,10 +146,6 @@ function detectarGerencia(linhas) {
   return 'IMASTER';
 }
 
-// ─────────────────────────────────────────────
-// EXTRATORES AMS5520
-// ─────────────────────────────────────────────
-
 function extrairPrimariaCsv(linhas) {
   const interfaces = [];
   let olt = '';
@@ -168,8 +154,8 @@ function extrairPrimariaCsv(linhas) {
     const match = linha.match(/PON Port:([^:,\s]+):([^,\s]+)/i);
     if (!match) return;
 
-    const nomeOlt = match[1]; // "OLTCTA22"
-    const caminho = match[2]; // "R1.S1.LT4.PON1"
+    const nomeOlt = match[1];
+    const caminho = match[2];
 
     if (!olt) olt = nomeOlt;
     interfaces.push(`${nomeOlt}:${caminho}`);
@@ -188,8 +174,8 @@ function extrairOntsAms(linhas) {
     const match = linha.match(/ONT:([^:,\s]+):([^,\s]+)/i);
     if (!match) return;
 
-    const nomeOlt = match[1]; // "OLTCTA21"
-    const caminho = match[2]; // "R1.S1.LT16.PON1.ONT4"
+    const nomeOlt = match[1];
+    const caminho = match[2];
 
     if (!olt) olt = nomeOlt;
     interfaces.push(`${nomeOlt}:${caminho}`);
@@ -205,12 +191,11 @@ function extrairSfpAms(linhas) {
   let olt = '';
 
   linhas.forEach((linha) => {
-    // Captura "Ethernet LT Port:OLTOCO21:R1.S1.LT16.P15,SFP"
     const match = linha.match(/Ethernet LT Port:([^:,\s]+):([^,\s]+,SFP)/i);
     if (!match) return;
 
-    const nomeOlt = match[1]; // "OLTOCO21"
-    const caminho = match[2]; // "R1.S1.LT16.P15,SFP"
+    const nomeOlt = match[1];
+    const caminho = match[2];
 
     if (!olt) olt = nomeOlt;
     interfaces.push(`${nomeOlt}:${caminho} -`);
@@ -221,14 +206,10 @@ function extrairSfpAms(linhas) {
   return `Indisponibilidade em rede HTT\nEquipamento: ${olt}\n\n${interfaces.join('\n')}\n\nHTT-afetados`;
 }
 
-// ─────────────────────────────────────────────
-// UTILITÁRIOS
-// ─────────────────────────────────────────────
 function formatarCliente(onu, contrato) {
   return `ONU ${String(onu).padEnd(4, ' ')} - ${contrato}`;
 }
 
-// Ordena interfaces no formato "slot/port" numericamente
 function ordenarInterfaces(lista) {
   return [...new Set(lista)].sort((a, b) => {
     const partsA = a.split('/').map((p) => parseInt(p) || 0);
@@ -241,20 +222,15 @@ function ordenarInterfaces(lista) {
   });
 }
 
-// ─────────────────────────────────────────────
-// GERAÇÃO DE TICKETS
-// ─────────────────────────────────────────────
 function gerarTicketsTexto(gerencia, linhas) {
   let resultadoFinal = '';
 
-  // ── iMaster PRIMÁRIA ──────────────────────────────────────
   if (gerencia === 'IMASTER_PRIMARIA') {
     let olt = '';
     let interfaces = [];
     let totalCircuitos = 0;
 
     linhas.forEach((linha) => {
-      // Nome da OLT: ex "olt5-bte-se" – captura padrão "olt\w+-\w+-\w+"
       const oltMatch = linha.match(/\b(olt[\w-]+)\b/i);
       const slotMatch = linha.match(/Slot=(\d+)/i);
       const portMatch = linha.match(/Port=(\d+)/i);
@@ -263,7 +239,6 @@ function gerarTicketsTexto(gerencia, linhas) {
       if (oltMatch && !olt) olt = oltMatch[1];
       if (totalMatch) totalCircuitos += Number(totalMatch[1]);
 
-      // Só adiciona interface se tiver slot E port válidos
       if (slotMatch && portMatch) {
         interfaces.push(`${slotMatch[1]}/${portMatch[1]}`);
       }
@@ -290,7 +265,6 @@ Fone NOC 3318-7890
     return resultadoFinal.trim();
   }
 
-  // ── iMaster SECUNDÁRIA ────────────────────────────────────
   if (gerencia === 'IMASTER') {
     const agrupado = {};
     let olt = '';
@@ -302,7 +276,6 @@ Fone NOC 3318-7890
       const portMatch = linha.match(/Port=(\d+)/i);
       const onuMatch = linha.match(/ONUID=(\d+)/i);
 
-      // Contrato: prioriza "Description of the ONT(only for NMS)=NUMERO"
       const contratoMatch = linha.match(/Description of the ONT\(only for NMS\)=(\d+)/i);
 
       if (!slotMatch || !portMatch || !onuMatch) return;
@@ -349,40 +322,32 @@ Data/Hora:
     return resultadoFinal.trim();
   }
 
-  // ── UNM2000 ───────────────────────────────────────────────
   if (gerencia === 'UNM2000') {
     let olt = '';
-    const interfacesPrimaria = [];   // ex: "GC8B[1]/PON3"
-    const clientesSecundaria = [];   // ex: { interface, nome, id }
+    const interfacesPrimaria = [];
+    const clientesSecundaria = [];
 
     linhas.forEach((linha) => {
       if (!linha.includes('\t')) return;
       const cols = linha.split('\t');
 
-      // OLT: 7ª coluna (índice 6) — ex: "LEO-01" ou "SAN-02"
       if (!olt && cols[6] && cols[6].trim()) {
         olt = cols[6].trim();
       }
 
-      // Coluna de interface: 8ª coluna (índice 7)
-      // Formato primária: "LEO-01/GC8B[1]/PON3"
-      // Formato secundária: "SAN-02/GC8B[3]/PON5/9825274_1554157_UBS_SANTIAGO:[16]"
       const colunaInterface = cols[7] ? cols[7].trim() : '';
 
-      // Extrai a parte da interface (até /PON\d+)
       const ifMatch = colunaInterface.match(/([A-Z0-9-]+\/GC[\w\[\]]+\/PON\d+)/i);
       if (!ifMatch) return;
 
-      const interfaceBase = ifMatch[1]; // "LEO-01/GC8B[1]/PON3" ou "SAN-02/GC8B[3]/PON5"
+      const interfaceBase = ifMatch[1];
 
-      // Verifica se é secundária (tem algo após /PON\d+)
       const secundariaMatch = colunaInterface.match(
         /[A-Z0-9-]+\/GC[\w\[\]]+\/PON\d+\/(.+)/i
       );
 
       if (secundariaMatch) {
-        // Secundária — captura nome do cliente e ID entre colchetes
-        const clienteRaw = secundariaMatch[1]; // "9825274_1554157_UBS_SANTIAGO:[16]"
+        const clienteRaw = secundariaMatch[1];
         const idMatch = clienteRaw.match(/:?\[(\d+)\]/);
         const nomeMatch = clienteRaw.match(/^(\d+)/);
 
@@ -392,12 +357,10 @@ Data/Hora:
           onu: idMatch ? idMatch[1] : '?',
         });
       } else {
-        // Primária — apenas interface
         interfacesPrimaria.push(interfaceBase);
       }
     });
 
-    // ── UNM2000 Primária
     if (interfacesPrimaria.length > 0) {
       const ifOrdenadas = ordenarInterfaces(interfacesPrimaria);
 
@@ -413,11 +376,9 @@ Circuitos afetados:
 Fone NOC 3318-7890`;
     }
 
-    // ── UNM2000 Secundária
     if (clientesSecundaria.length > 0) {
       if (resultadoFinal) resultadoFinal += '\n\n';
 
-      // Agrupar por interface
       const agrupado = {};
       clientesSecundaria.forEach(({ interface: iface, contrato, onu }) => {
         if (!agrupado[iface]) agrupado[iface] = [];
@@ -446,7 +407,6 @@ Data/Hora:
     return resultadoFinal.trim();
   }
 
-  // ── ZTE ──────────────────────────────────────────────────
   if (gerencia === 'ZTE') {
     let olt = '';
     const interfacesPrimaria = [];
@@ -454,7 +414,6 @@ Data/Hora:
     let totalSecundaria = 0;
 
     linhas.forEach((linha) => {
-      // OLT: ex "olt4-nprfzr01"
       const oltMatch = linha.match(/\b(olt[\w-]+)\b/i);
       if (oltMatch && !olt) olt = oltMatch[1];
 
@@ -463,10 +422,8 @@ Data/Hora:
       const portMatch = linha.match(/PORT=(\d+)/i);
       const onuMatch = linha.match(/,ONU=(\d+)/i);
 
-      // Interface completa via "Port=gpon_olt-RACK/SLOT/PORT"
       const gponMatch = linha.match(/Port=gpon_olt-([\d/]+)/i);
 
-      // Contrato/nome da ONU: "ONU Name=2878622"
       const onuNameMatch = linha.match(/ONU Name=(\d+)/i);
 
       if (!slotMatch || !portMatch) return;
@@ -474,11 +431,9 @@ Data/Hora:
       const rack = rackMatch ? rackMatch[1] : '1';
       const slot = slotMatch[1];
       const port = portMatch[1];
-      // Usa a interface do campo gpon_olt se disponível, senão monta RACK/SLOT/PORT
       const interfaceCompleta = gponMatch ? gponMatch[1] : `${rack}/${slot}/${port}`;
 
       if (onuMatch) {
-        // Secundária
         const onu = onuMatch[1];
         const contrato = onuNameMatch ? onuNameMatch[1] : 'NCE';
         const chave = `${slot}/${port}`;
@@ -487,12 +442,10 @@ Data/Hora:
         agrupado[chave].push({ onu, contrato });
         totalSecundaria++;
       } else {
-        // Primária
         interfacesPrimaria.push(interfaceCompleta);
       }
     });
 
-    // ── ZTE Primária
     if (interfacesPrimaria.length > 0) {
       const ifOrdenadas = ordenarInterfaces(interfacesPrimaria);
 
@@ -504,7 +457,6 @@ Data/Hora:
 Fone NOC 3318-7890`;
     }
 
-    // ── ZTE Secundária
     if (Object.keys(agrupado).length > 0) {
       if (resultadoFinal) resultadoFinal += '\n\n';
 
@@ -533,9 +485,6 @@ Data/Hora:
   return 'Nenhum alarme reconhecido.';
 }
 
-// ─────────────────────────────────────────────
-// PROCESSADOR PRINCIPAL
-// ─────────────────────────────────────────────
 function processarTexto(texto) {
   const linhas = texto.split('\n').filter(Boolean);
   const gerencia = detectarGerencia(linhas);
@@ -548,7 +497,7 @@ function processarTexto(texto) {
 }
 
 // ─────────────────────────────────────────────
-// COMPONENTE REACT — VISUAL PREMIUM
+// COMPONENTE REACT — VISUAL TERMINAL VERDE
 // ─────────────────────────────────────────────
 
 const FIBRAS = Array.from({ length: 18 }, (_, i) => ({
@@ -557,7 +506,7 @@ const FIBRAS = Array.from({ length: 18 }, (_, i) => ({
   dur: 6 + Math.random() * 8,
   delay: Math.random() * 6,
   width: 0.8 + Math.random() * 1.4,
-  opacity: 0.12 + Math.random() * 0.22,
+  opacity: 0.08 + Math.random() * 0.15,
   curve: (Math.random() - 0.5) * 40,
 }));
 
@@ -566,7 +515,7 @@ function useGlobalReset() {
     const style = document.createElement('style');
     style.innerHTML = `
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body, #root { width: 100%; min-height: 100vh; background: #06080f; }
+      html, body, #root { width: 100%; min-height: 100vh; background: #0a0820; }
       body { overflow-x: hidden; }
     `;
     document.head.appendChild(style);
@@ -583,10 +532,10 @@ function FiberBackground() {
       <defs>
         {FIBRAS.map((f) => (
           <linearGradient key={f.id} id={`fg${f.id}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#00d4ff" stopOpacity="0" />
-            <stop offset="40%" stopColor="#00d4ff" stopOpacity={f.opacity * 1.6} />
+            <stop offset="0%" stopColor="#00ff41" stopOpacity="0" />
+            <stop offset="40%" stopColor="#00ff41" stopOpacity={f.opacity * 1.6} />
             <stop offset="60%" stopColor="#7c3aed" stopOpacity={f.opacity} />
-            <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+            <stop offset="100%" stopColor="#3b0fa0" stopOpacity="0" />
           </linearGradient>
         ))}
       </defs>
@@ -675,13 +624,14 @@ export default function App() {
   };
   const handleLimparConv = () => { setEntradaConv(''); setResultadoConv(''); };
 
+  // ── PALETA: verde terminal, só "NOC" permanece ciano
   const s = {
     wrap: {
       position: 'relative',
       minHeight: '100vh',
       width: '100vw',
-      background: '#06080f',
-      color: '#e2eaf4',
+      background: 'linear-gradient(135deg, #0a0820 0%, #0d0a2e 50%, #120830 100%)',
+      color: '#00ff41',           // ← verde terminal
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
       display: 'flex',
       flexDirection: 'column',
@@ -703,16 +653,16 @@ export default function App() {
       fontSize: '28px',
       fontWeight: '700',
       letterSpacing: '0.08em',
-      color: '#e2eaf4',
+      color: '#00ff41',           // ← verde terminal
       margin: '0 0 6px',
       textTransform: 'uppercase',
     },
     titleAccent: {
-      color: '#00d4ff',
+      color: '#00d4ff',           // ← ciano original (só "NOC")
     },
     subtitle: {
       fontSize: '13px',
-      color: '#4a6080',
+      color: '#39ff6a',           // ← verde vivo
       letterSpacing: '0.14em',
       textTransform: 'uppercase',
       margin: 0,
@@ -721,7 +671,7 @@ export default function App() {
       display: 'flex',
       gap: '4px',
       marginBottom: '28px',
-      borderBottom: '1px solid #0f1e30',
+      borderBottom: '1px solid #1a3a5c',  // ← borda azul visível
       paddingBottom: '0',
     },
     tab: (ativo) => ({
@@ -730,10 +680,10 @@ export default function App() {
       fontFamily: 'inherit',
       fontWeight: ativo ? '700' : '400',
       letterSpacing: '0.05em',
-      background: ativo ? 'rgba(0,212,255,0.08)' : 'transparent',
-      color: ativo ? '#00d4ff' : '#4a6080',
+      background: ativo ? 'rgba(0,255,65,0.10)' : 'transparent',
+      color: ativo ? '#00ff41' : '#39ff6a',   // ← ambos verdes vivos
       border: 'none',
-      borderBottom: ativo ? '2px solid #00d4ff' : '2px solid transparent',
+      borderBottom: ativo ? '2px solid #00ff41' : '2px solid transparent',
       cursor: 'pointer',
       marginBottom: '-1px',
       transition: 'all 0.2s',
@@ -742,15 +692,15 @@ export default function App() {
       fontSize: '13px',
       letterSpacing: '0.1em',
       textTransform: 'uppercase',
-      color: '#2a4a6a',
+      color: '#39ff6a',           // ← verde vivo
       marginBottom: '8px',
     },
     textarea: (cor) => ({
       width: '100%',
       padding: '16px 18px',
-      background: 'rgba(255,255,255,0.03)',
-      color: cor || '#c8d8e8',
-      border: '1px solid #0f1e30',
+      background: 'rgba(0,10,30,0.5)',
+      color: cor || '#00ff41',    // ← verde terminal
+      border: '1px solid #1a3a5c',
       borderRadius: '8px',
       fontSize: '15px',
       fontFamily: 'inherit',
@@ -769,8 +719,8 @@ export default function App() {
     },
     btnPrimary: {
       padding: '12px 28px',
-      background: 'linear-gradient(135deg, #0066aa, #00aacc)',
-      color: '#fff',
+      background: 'linear-gradient(135deg, #004d1a, #00aa33)',
+      color: '#00ff41',
       border: 'none',
       borderRadius: '8px',
       cursor: 'pointer',
@@ -778,14 +728,14 @@ export default function App() {
       fontWeight: '700',
       fontSize: '15px',
       letterSpacing: '0.06em',
-      boxShadow: '0 0 16px rgba(0,180,230,0.25)',
+      boxShadow: '0 0 16px rgba(0,255,65,0.2)',
       transition: 'all 0.2s',
     },
     btnSecondary: (ativo) => ({
       padding: '12px 22px',
-      background: ativo ? 'rgba(0,200,80,0.12)' : 'rgba(255,255,255,0.04)',
-      color: ativo ? '#00e676' : '#4a6080',
-      border: `1px solid ${ativo ? '#00e676' : '#0f1e30'}`,
+      background: ativo ? 'rgba(0,255,65,0.15)' : 'rgba(0,255,65,0.06)',
+      color: ativo ? '#00ff41' : '#39ff6a',
+      border: `1px solid ${ativo ? '#00ff41' : '#2a6644'}`,
       borderRadius: '8px',
       cursor: 'pointer',
       fontFamily: 'inherit',
@@ -796,8 +746,8 @@ export default function App() {
     btnGhost: {
       padding: '12px 20px',
       background: 'transparent',
-      color: '#2a4a6a',
-      border: '1px solid #0f1e30',
+      color: '#39ff6a',
+      border: '1px solid #2a6644',
       borderRadius: '8px',
       cursor: 'pointer',
       fontFamily: 'inherit',
@@ -806,13 +756,13 @@ export default function App() {
     },
     badge: {
       marginLeft: 'auto',
-      background: 'rgba(0,212,255,0.08)',
-      color: '#00d4ff',
+      background: 'rgba(0,255,65,0.08)',
+      color: '#00ff41',
       padding: '8px 18px',
       borderRadius: '20px',
       fontSize: '13px',
       letterSpacing: '0.08em',
-      border: '1px solid rgba(0,212,255,0.2)',
+      border: '1px solid rgba(0,255,65,0.2)',
       textTransform: 'uppercase',
     },
     footer: {
@@ -820,7 +770,7 @@ export default function App() {
       bottom: '18px',
       left: '28px',
       fontSize: '13px',
-      color: '#1e3550',
+      color: '#39ff6a',           // ← verde vivo
       letterSpacing: '0.06em',
       zIndex: 10,
       userSelect: 'none',
@@ -859,7 +809,7 @@ export default function App() {
         value={resultadoOptica}
         readOnly
         placeholder="Resultado aparecerá aqui..."
-        style={{ ...s.textarea('#52e8a0'), height: '280px' }}
+        style={{ ...s.textarea('#00ff41'), height: '280px' }}
       />
     </>
   );
@@ -884,7 +834,7 @@ export default function App() {
         value={resultadoConv}
         readOnly
         placeholder="Resultado aparecerá aqui..."
-        style={{ ...s.textarea('#52e8a0'), height: '280px' }}
+        style={{ ...s.textarea('#00ff41'), height: '280px' }}
       />
     </>
   );
