@@ -548,27 +548,94 @@ function processarTexto(texto) {
 }
 
 // ─────────────────────────────────────────────
-// COMPONENTE REACT
+// COMPONENTE REACT — VISUAL PREMIUM
 // ─────────────────────────────────────────────
+
+const FIBRAS = Array.from({ length: 18 }, (_, i) => ({
+  id: i,
+  x: Math.random() * 100,
+  dur: 6 + Math.random() * 8,
+  delay: Math.random() * 6,
+  width: 0.8 + Math.random() * 1.4,
+  opacity: 0.12 + Math.random() * 0.22,
+  curve: (Math.random() - 0.5) * 40,
+}));
+
+function FiberBackground() {
+  return (
+    <svg
+      style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 0 }}
+      preserveAspectRatio="none"
+    >
+      <defs>
+        {FIBRAS.map((f) => (
+          <linearGradient key={f.id} id={`fg${f.id}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#00d4ff" stopOpacity="0" />
+            <stop offset="40%" stopColor="#00d4ff" stopOpacity={f.opacity * 1.6} />
+            <stop offset="60%" stopColor="#7c3aed" stopOpacity={f.opacity} />
+            <stop offset="100%" stopColor="#7c3aed" stopOpacity="0" />
+          </linearGradient>
+        ))}
+      </defs>
+      {FIBRAS.map((f) => (
+        <line
+          key={f.id}
+          x1={`${f.x}%`} y1="-5%"
+          x2={`${f.x + f.curve * 0.1}%`} y2="105%"
+          stroke={`url(#fg${f.id})`}
+          strokeWidth={f.width}
+          style={{
+            animation: `fiberPulse ${f.dur}s ${f.delay}s ease-in-out infinite alternate`,
+          }}
+        />
+      ))}
+      <style>{`
+        @keyframes fiberPulse {
+          0%   { opacity: 0.2; transform: translateX(0px); }
+          50%  { opacity: 1;   transform: translateX(3px); }
+          100% { opacity: 0.3; transform: translateX(-2px); }
+        }
+      `}</style>
+    </svg>
+  );
+}
+
+const LABEL_GERENCIA = {
+  IMASTER_PRIMARIA: 'iMaster — Primária',
+  IMASTER:          'iMaster — Secundária',
+  UNM2000:          'UNM2000',
+  ZTE:              'ZTE',
+  AMS:              'AMS5520 — Secundária',
+  AMS_SFP:          'AMS5520 — SFP',
+  PRIMARIA_CSV:     'AMS5520 — Primária',
+};
+
+const ICON_GERENCIA = {
+  IMASTER_PRIMARIA: '📡',
+  IMASTER:          '📡',
+  UNM2000:          '🖥',
+  ZTE:              '⚙',
+  AMS:              '📋',
+  AMS_SFP:          '📋',
+  PRIMARIA_CSV:     '📋',
+};
+
 export default function App() {
-  const [aba, setAba] = useState('optica'); // 'optica' | 'convencional'
+  const [aba, setAba] = useState('optica');
 
-  // ── Estado aba Óptica
-  const [entradaOptica, setEntradaOptica] = useState('');
-  const [resultadoOptica, setResultadoOptica] = useState('');
-  const [gerenciaDetectada, setGerenciaDetectada] = useState('');
-  const [copiadoOptica, setCopiadoOptica] = useState(false);
+  const [entradaOptica, setEntradaOptica]       = useState('');
+  const [resultadoOptica, setResultadoOptica]   = useState('');
+  const [gerencia, setGerencia]                 = useState('');
+  const [copiadoOptica, setCopiadoOptica]       = useState(false);
 
-  // ── Estado aba Convencional
-  const [entradaConv, setEntradaConv] = useState('');
-  const [resultadoConv, setResultadoConv] = useState('');
-  const [copiadoConv, setCopiadoConv] = useState(false);
+  const [entradaConv, setEntradaConv]           = useState('');
+  const [resultadoConv, setResultadoConv]       = useState('');
+  const [copiadoConv, setCopiadoConv]           = useState(false);
 
-  // ── Handlers Óptica
   const handleGerarOptica = () => {
     const linhas = entradaOptica.split('\n').filter(Boolean);
-    const gerencia = detectarGerencia(linhas);
-    setGerenciaDetectada(gerencia);
+    const g = detectarGerencia(linhas);
+    setGerencia(g);
     setResultadoOptica(processarTexto(entradaOptica));
     setCopiadoOptica(false);
   };
@@ -579,14 +646,8 @@ export default function App() {
       setTimeout(() => setCopiadoOptica(false), 2000);
     });
   };
-  const handleLimparOptica = () => {
-    setEntradaOptica('');
-    setResultadoOptica('');
-    setGerenciaDetectada('');
-    setCopiadoOptica(false);
-  };
+  const handleLimparOptica = () => { setEntradaOptica(''); setResultadoOptica(''); setGerencia(''); };
 
-  // ── Handlers Convencional
   const handleGerarConv = () => {
     setResultadoConv(processarAlarmes(entradaConv));
     setCopiadoConv(false);
@@ -598,151 +659,251 @@ export default function App() {
       setTimeout(() => setCopiadoConv(false), 2000);
     });
   };
-  const handleLimparConv = () => {
-    setEntradaConv('');
-    setResultadoConv('');
-    setCopiadoConv(false);
+  const handleLimparConv = () => { setEntradaConv(''); setResultadoConv(''); };
+
+  const s = {
+    wrap: {
+      position: 'relative',
+      minHeight: '100vh',
+      background: '#06080f',
+      color: '#e2eaf4',
+      fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
+      display: 'flex',
+      flexDirection: 'column',
+    },
+    inner: {
+      position: 'relative',
+      zIndex: 1,
+      maxWidth: '1100px',
+      width: '100%',
+      margin: '0 auto',
+      padding: '32px 28px 80px',
+      flex: 1,
+    },
+    header: {
+      marginBottom: '28px',
+    },
+    title: {
+      fontSize: '22px',
+      fontWeight: '700',
+      letterSpacing: '0.08em',
+      color: '#e2eaf4',
+      margin: '0 0 4px',
+      textTransform: 'uppercase',
+    },
+    titleAccent: {
+      color: '#00d4ff',
+    },
+    subtitle: {
+      fontSize: '12px',
+      color: '#4a6080',
+      letterSpacing: '0.12em',
+      textTransform: 'uppercase',
+      margin: 0,
+    },
+    tabBar: {
+      display: 'flex',
+      gap: '4px',
+      marginBottom: '24px',
+      borderBottom: '1px solid #0f1e30',
+      paddingBottom: '0',
+    },
+    tab: (ativo) => ({
+      padding: '10px 22px',
+      fontSize: '13px',
+      fontFamily: 'inherit',
+      fontWeight: ativo ? '700' : '400',
+      letterSpacing: '0.05em',
+      background: ativo ? 'rgba(0,212,255,0.08)' : 'transparent',
+      color: ativo ? '#00d4ff' : '#4a6080',
+      border: 'none',
+      borderBottom: ativo ? '2px solid #00d4ff' : '2px solid transparent',
+      cursor: 'pointer',
+      marginBottom: '-1px',
+      transition: 'all 0.2s',
+    }),
+    label: {
+      fontSize: '11px',
+      letterSpacing: '0.1em',
+      textTransform: 'uppercase',
+      color: '#2a4a6a',
+      marginBottom: '6px',
+    },
+    textarea: (cor) => ({
+      width: '100%',
+      padding: '14px 16px',
+      background: 'rgba(255,255,255,0.03)',
+      color: cor || '#c8d8e8',
+      border: '1px solid #0f1e30',
+      borderRadius: '8px',
+      fontSize: '12.5px',
+      fontFamily: 'inherit',
+      resize: 'vertical',
+      boxSizing: 'border-box',
+      outline: 'none',
+      lineHeight: '1.6',
+      transition: 'border-color 0.2s',
+    }),
+    btnRow: {
+      display: 'flex',
+      gap: '10px',
+      alignItems: 'center',
+      margin: '14px 0',
+      flexWrap: 'wrap',
+    },
+    btnPrimary: {
+      padding: '10px 24px',
+      background: 'linear-gradient(135deg, #0066aa, #00aacc)',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '7px',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      fontWeight: '700',
+      fontSize: '13px',
+      letterSpacing: '0.06em',
+      boxShadow: '0 0 16px rgba(0,180,230,0.25)',
+      transition: 'all 0.2s',
+    },
+    btnSecondary: (ativo) => ({
+      padding: '10px 20px',
+      background: ativo ? 'rgba(0,200,80,0.12)' : 'rgba(255,255,255,0.04)',
+      color: ativo ? '#00e676' : '#4a6080',
+      border: `1px solid ${ativo ? '#00e676' : '#0f1e30'}`,
+      borderRadius: '7px',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      fontSize: '13px',
+      letterSpacing: '0.04em',
+      transition: 'all 0.2s',
+    }),
+    btnGhost: {
+      padding: '10px 18px',
+      background: 'transparent',
+      color: '#2a4a6a',
+      border: '1px solid #0f1e30',
+      borderRadius: '7px',
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+      fontSize: '13px',
+      transition: 'all 0.2s',
+    },
+    badge: {
+      marginLeft: 'auto',
+      background: 'rgba(0,212,255,0.08)',
+      color: '#00d4ff',
+      padding: '6px 14px',
+      borderRadius: '20px',
+      fontSize: '11px',
+      letterSpacing: '0.08em',
+      border: '1px solid rgba(0,212,255,0.2)',
+      textTransform: 'uppercase',
+    },
+    footer: {
+      position: 'fixed',
+      bottom: '16px',
+      left: '24px',
+      fontSize: '11px',
+      color: '#1e3550',
+      letterSpacing: '0.06em',
+      zIndex: 10,
+      userSelect: 'none',
+    },
+    scanline: {
+      position: 'fixed',
+      top: 0, left: 0, right: 0, bottom: 0,
+      background: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px)',
+      pointerEvents: 'none',
+      zIndex: 0,
+    },
   };
 
-  const labelGerencia = {
-    IMASTER_PRIMARIA: '📡 iMaster – Primária',
-    IMASTER: '📡 iMaster – Secundária',
-    UNM2000: '🖥️ UNM2000',
-    ZTE: '⚙️ ZTE',
-    AMS: '📋 AMS5520 – Secundária',
-    AMS_SFP: '📋 AMS5520 – SFP',
-    PRIMARIA_CSV: '📋 AMS5520 – Primária',
-  };
+  const PainelOptica = () => (
+    <>
+      <p style={s.label}>Huawei iMaster &nbsp;·&nbsp; UNM2000 &nbsp;·&nbsp; AMS5520 &nbsp;·&nbsp; ZTE</p>
+      <textarea
+        value={entradaOptica}
+        onChange={(e) => setEntradaOptica(e.target.value)}
+        placeholder="Cole os alarmes ópticos aqui..."
+        style={{ ...s.textarea(), height: '200px' }}
+      />
+      <div style={s.btnRow}>
+        <button onClick={handleGerarOptica} style={s.btnPrimary}>▶ Gerar Ticket</button>
+        <button onClick={handleCopiarOptica} style={s.btnSecondary(copiadoOptica)}>
+          {copiadoOptica ? '✓ Copiado!' : '⧉ Copiar'}
+        </button>
+        <button onClick={handleLimparOptica} style={s.btnGhost}>✕ Limpar</button>
+        {gerencia && (
+          <span style={s.badge}>
+            {ICON_GERENCIA[gerencia]} {LABEL_GERENCIA[gerencia] || gerencia}
+          </span>
+        )}
+      </div>
+      <textarea
+        value={resultadoOptica}
+        readOnly
+        placeholder="Resultado aparecerá aqui..."
+        style={{ ...s.textarea('#52e8a0'), height: '280px' }}
+      />
+    </>
+  );
 
-  const estiloBase = {
-    padding: '24px',
-    fontFamily: "'Courier New', monospace",
-    maxWidth: '1100px',
-    margin: '0 auto',
-    background: '#0f1117',
-    minHeight: '100vh',
-    color: '#e2e8f0',
-  };
-
-  const estiloTextarea = (cor = '#e2e8f0') => ({
-    width: '100%',
-    padding: '12px',
-    background: '#1e2330',
-    color: cor,
-    border: '1px solid #2d3748',
-    borderRadius: '6px',
-    fontSize: '13px',
-    resize: 'vertical',
-    boxSizing: 'border-box',
-  });
-
-  const estiloBotao = (bg, disabled = false) => ({
-    padding: '10px 22px',
-    background: bg,
-    color: '#fff',
-    border: 'none',
-    borderRadius: '6px',
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    fontWeight: 'bold',
-    fontSize: '14px',
-  });
+  const PainelConvencional = () => (
+    <>
+      <p style={s.label}>Interfaces Convencional &nbsp;/&nbsp; Metro</p>
+      <textarea
+        value={entradaConv}
+        onChange={(e) => setEntradaConv(e.target.value)}
+        placeholder="Cole os alarmes convencional/metro aqui..."
+        style={{ ...s.textarea(), height: '200px' }}
+      />
+      <div style={s.btnRow}>
+        <button onClick={handleGerarConv} style={s.btnPrimary}>▶ Gerar Ticket</button>
+        <button onClick={handleCopiarConv} style={s.btnSecondary(copiadoConv)}>
+          {copiadoConv ? '✓ Copiado!' : '⧉ Copiar'}
+        </button>
+        <button onClick={handleLimparConv} style={s.btnGhost}>✕ Limpar</button>
+      </div>
+      <textarea
+        value={resultadoConv}
+        readOnly
+        placeholder="Resultado aparecerá aqui..."
+        style={{ ...s.textarea('#52e8a0'), height: '280px' }}
+      />
+    </>
+  );
 
   return (
-    <div style={estiloBase}>
-      <h1 style={{ color: '#38bdf8', marginBottom: '4px', fontSize: '20px', letterSpacing: '0.05em' }}>
-        🔧 Gerador de Tickets NOC
-      </h1>
+    <div style={s.wrap}>
+      <FiberBackground />
+      <div style={s.scanline} />
 
-      {/* ── Abas ── */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid #2d3748', paddingBottom: '0' }}>
-        {[
-          { id: 'optica', label: '📡 Óptica / PON' },
-          { id: 'convencional', label: '🖧 Convencional / Metro' },
-        ].map(({ id, label }) => (
-          <button
-            key={id}
-            onClick={() => setAba(id)}
-            style={{
-              padding: '8px 20px',
-              background: aba === id ? '#0284c7' : '#1e2330',
-              color: aba === id ? '#fff' : '#64748b',
-              border: aba === id ? '1px solid #0284c7' : '1px solid #2d3748',
-              borderBottom: aba === id ? '1px solid #0f1117' : '1px solid #2d3748',
-              borderRadius: '6px 6px 0 0',
-              cursor: 'pointer',
-              fontSize: '13px',
-              marginBottom: '-1px',
-            }}
-          >
-            {label}
-          </button>
-        ))}
+      <div style={s.inner}>
+        <div style={s.header}>
+          <h1 style={s.title}>
+            <span style={s.titleAccent}>NOC</span> · Gerador de Tickets
+          </h1>
+          <p style={s.subtitle}>Network Operations Center &nbsp;—&nbsp; Sercomtel</p>
+        </div>
+
+        <div style={s.tabBar}>
+          {[
+            { id: 'optica',       label: '📡 Óptica / PON' },
+            { id: 'convencional', label: '🖧 Convencional / Metro' },
+          ].map(({ id, label }) => (
+            <button key={id} style={s.tab(aba === id)} onClick={() => setAba(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {aba === 'optica'       && <PainelOptica />}
+        {aba === 'convencional' && <PainelConvencional />}
       </div>
 
-      {/* ══ ABA ÓPTICA ══════════════════════════════════════ */}
-      {aba === 'optica' && (
-        <>
-          <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '12px' }}>
-            Huawei iMaster · UNM2000 · AMS5520 · ZTE
-          </p>
-          <textarea
-            value={entradaOptica}
-            onChange={(e) => setEntradaOptica(e.target.value)}
-            placeholder="Cole os alarmes ópticos aqui..."
-            style={{ ...estiloTextarea(), height: '220px', marginBottom: '12px' }}
-          />
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
-            <button onClick={handleGerarOptica} style={estiloBotao('#0284c7')}>▶ Gerar Ticket</button>
-            <button onClick={handleCopiarOptica} style={estiloBotao(copiadoOptica ? '#16a34a' : '#334155', !resultadoOptica)}>
-              {copiadoOptica ? '✓ Copiado!' : '📋 Copiar'}
-            </button>
-            <button onClick={handleLimparOptica} style={{ ...estiloBotao('#1e2330'), border: '1px solid #2d3748', color: '#94a3b8' }}>
-              🗑 Limpar
-            </button>
-            {gerenciaDetectada && (
-              <span style={{ marginLeft: 'auto', background: '#1e3a5f', color: '#38bdf8', padding: '6px 14px', borderRadius: '20px', fontSize: '12px', border: '1px solid #0284c7' }}>
-                {labelGerencia[gerenciaDetectada] || gerenciaDetectada}
-              </span>
-            )}
-          </div>
-          <textarea
-            value={resultadoOptica}
-            readOnly
-            placeholder="Resultado aparecerá aqui..."
-            style={{ ...estiloTextarea('#a3e635'), height: '300px' }}
-          />
-        </>
-      )}
-
-      {/* ══ ABA CONVENCIONAL ════════════════════════════════ */}
-      {aba === 'convencional' && (
-        <>
-          <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '12px' }}>
-            Interfaces Convencional / Metro
-          </p>
-          <textarea
-            value={entradaConv}
-            onChange={(e) => setEntradaConv(e.target.value)}
-            placeholder="Cole os alarmes convencional/metro aqui..."
-            style={{ ...estiloTextarea(), height: '220px', marginBottom: '12px' }}
-          />
-          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px', flexWrap: 'wrap' }}>
-            <button onClick={handleGerarConv} style={estiloBotao('#0284c7')}>▶ Gerar Ticket</button>
-            <button onClick={handleCopiarConv} style={estiloBotao(copiadoConv ? '#16a34a' : '#334155', !resultadoConv)}>
-              {copiadoConv ? '✓ Copiado!' : '📋 Copiar'}
-            </button>
-            <button onClick={handleLimparConv} style={{ ...estiloBotao('#1e2330'), border: '1px solid #2d3748', color: '#94a3b8' }}>
-              🗑 Limpar
-            </button>
-          </div>
-          <textarea
-            value={resultadoConv}
-            readOnly
-            placeholder="Resultado aparecerá aqui..."
-            style={{ ...estiloTextarea('#a3e635'), height: '300px' }}
-          />
-        </>
-      )}
+      <div style={s.footer}>
+        Desenvolvido por: Antonio André de Sousa Pinheiro
+      </div>
     </div>
   );
 }
