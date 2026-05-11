@@ -561,6 +561,19 @@ const FIBRAS = Array.from({ length: 18 }, (_, i) => ({
   curve: (Math.random() - 0.5) * 40,
 }));
 
+function useGlobalReset() {
+  React.useEffect(() => {
+    const style = document.createElement('style');
+    style.innerHTML = `
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body, #root { width: 100%; min-height: 100vh; background: #06080f; }
+      body { overflow-x: hidden; }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+}
+
 function FiberBackground() {
   return (
     <svg
@@ -621,6 +634,7 @@ const ICON_GERENCIA = {
 };
 
 export default function App() {
+  useGlobalReset();
   const [aba, setAba] = useState('optica');
 
   const [entradaOptica, setEntradaOptica]       = useState('');
@@ -665,52 +679,54 @@ export default function App() {
     wrap: {
       position: 'relative',
       minHeight: '100vh',
+      width: '100vw',
       background: '#06080f',
       color: '#e2eaf4',
       fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
       display: 'flex',
       flexDirection: 'column',
+      boxSizing: 'border-box',
     },
     inner: {
       position: 'relative',
       zIndex: 1,
-      maxWidth: '1100px',
       width: '100%',
-      margin: '0 auto',
-      padding: '32px 28px 80px',
+      maxWidth: '100%',
+      padding: '36px 48px 90px',
       flex: 1,
+      boxSizing: 'border-box',
     },
     header: {
-      marginBottom: '28px',
+      marginBottom: '32px',
     },
     title: {
-      fontSize: '22px',
+      fontSize: '28px',
       fontWeight: '700',
       letterSpacing: '0.08em',
       color: '#e2eaf4',
-      margin: '0 0 4px',
+      margin: '0 0 6px',
       textTransform: 'uppercase',
     },
     titleAccent: {
       color: '#00d4ff',
     },
     subtitle: {
-      fontSize: '12px',
+      fontSize: '13px',
       color: '#4a6080',
-      letterSpacing: '0.12em',
+      letterSpacing: '0.14em',
       textTransform: 'uppercase',
       margin: 0,
     },
     tabBar: {
       display: 'flex',
       gap: '4px',
-      marginBottom: '24px',
+      marginBottom: '28px',
       borderBottom: '1px solid #0f1e30',
       paddingBottom: '0',
     },
     tab: (ativo) => ({
-      padding: '10px 22px',
-      fontSize: '13px',
+      padding: '12px 28px',
+      fontSize: '15px',
       fontFamily: 'inherit',
       fontWeight: ativo ? '700' : '400',
       letterSpacing: '0.05em',
@@ -723,87 +739,87 @@ export default function App() {
       transition: 'all 0.2s',
     }),
     label: {
-      fontSize: '11px',
+      fontSize: '13px',
       letterSpacing: '0.1em',
       textTransform: 'uppercase',
       color: '#2a4a6a',
-      marginBottom: '6px',
+      marginBottom: '8px',
     },
     textarea: (cor) => ({
       width: '100%',
-      padding: '14px 16px',
+      padding: '16px 18px',
       background: 'rgba(255,255,255,0.03)',
       color: cor || '#c8d8e8',
       border: '1px solid #0f1e30',
       borderRadius: '8px',
-      fontSize: '12.5px',
+      fontSize: '15px',
       fontFamily: 'inherit',
       resize: 'vertical',
       boxSizing: 'border-box',
       outline: 'none',
-      lineHeight: '1.6',
+      lineHeight: '1.7',
       transition: 'border-color 0.2s',
     }),
     btnRow: {
       display: 'flex',
-      gap: '10px',
+      gap: '12px',
       alignItems: 'center',
-      margin: '14px 0',
+      margin: '16px 0',
       flexWrap: 'wrap',
     },
     btnPrimary: {
-      padding: '10px 24px',
+      padding: '12px 28px',
       background: 'linear-gradient(135deg, #0066aa, #00aacc)',
       color: '#fff',
       border: 'none',
-      borderRadius: '7px',
+      borderRadius: '8px',
       cursor: 'pointer',
       fontFamily: 'inherit',
       fontWeight: '700',
-      fontSize: '13px',
+      fontSize: '15px',
       letterSpacing: '0.06em',
       boxShadow: '0 0 16px rgba(0,180,230,0.25)',
       transition: 'all 0.2s',
     },
     btnSecondary: (ativo) => ({
-      padding: '10px 20px',
+      padding: '12px 22px',
       background: ativo ? 'rgba(0,200,80,0.12)' : 'rgba(255,255,255,0.04)',
       color: ativo ? '#00e676' : '#4a6080',
       border: `1px solid ${ativo ? '#00e676' : '#0f1e30'}`,
-      borderRadius: '7px',
+      borderRadius: '8px',
       cursor: 'pointer',
       fontFamily: 'inherit',
-      fontSize: '13px',
+      fontSize: '15px',
       letterSpacing: '0.04em',
       transition: 'all 0.2s',
     }),
     btnGhost: {
-      padding: '10px 18px',
+      padding: '12px 20px',
       background: 'transparent',
       color: '#2a4a6a',
       border: '1px solid #0f1e30',
-      borderRadius: '7px',
+      borderRadius: '8px',
       cursor: 'pointer',
       fontFamily: 'inherit',
-      fontSize: '13px',
+      fontSize: '15px',
       transition: 'all 0.2s',
     },
     badge: {
       marginLeft: 'auto',
       background: 'rgba(0,212,255,0.08)',
       color: '#00d4ff',
-      padding: '6px 14px',
+      padding: '8px 18px',
       borderRadius: '20px',
-      fontSize: '11px',
+      fontSize: '13px',
       letterSpacing: '0.08em',
       border: '1px solid rgba(0,212,255,0.2)',
       textTransform: 'uppercase',
     },
     footer: {
       position: 'fixed',
-      bottom: '16px',
-      left: '24px',
-      fontSize: '11px',
+      bottom: '18px',
+      left: '28px',
+      fontSize: '13px',
       color: '#1e3550',
       letterSpacing: '0.06em',
       zIndex: 10,
