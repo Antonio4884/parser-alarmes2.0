@@ -897,9 +897,9 @@ export default function App() {
       <div style={s.inner}>
         <div style={s.header}>
           <h1 style={s.title}>
-            <span style={s.titleAccent}>NOC</span> · Gerador de Tickets
+            <span style={s.titleAccent}>NOC</span>
           </h1>
-          <p style={s.subtitle}>Network Operations Center &nbsp;—&nbsp; Sercomtel</p>
+          <p style={s.subtitle}></p>
         </div>
 
         <div style={s.tabBar}>
