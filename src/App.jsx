@@ -1,5 +1,20 @@
 import React, { useState } from 'react';
 
+// ─────────────────────────────────────────────
+// UTILITÁRIO: DATA/HORA ATUAL DO SISTEMA
+// ─────────────────────────────────────────────
+
+function dataHoraAtual() {
+  const agora = new Date();
+  const dd  = String(agora.getDate()).padStart(2, '0');
+  const mm  = String(agora.getMonth() + 1).padStart(2, '0');
+  const aaaa = agora.getFullYear();
+  const hh  = String(agora.getHours()).padStart(2, '0');
+  const min = String(agora.getMinutes()).padStart(2, '0');
+  const ss  = String(agora.getSeconds()).padStart(2, '0');
+  return `${dd}/${mm}/${aaaa} ${hh}:${min}:${ss} BRT`;
+}
+
 // ═════════════════════════════════════════════════════════
 // MÓDULO: CONVENCIONAL / METRO
 // ═════════════════════════════════════════════════════════
@@ -24,6 +39,12 @@ function extrairDadosConvencional(linha) {
   const horarioOriginal = horarioMatch ? horarioMatch[1] : null;
   const horario = horarioOriginal ? converterHorario24h(horarioOriginal) : null;
 
+  // Extrai data MM/DD/YYYY e converte para DD/MM/YYYY
+  const dataMatch = linha.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  const data = dataMatch
+    ? `${dataMatch[2].padStart(2,'0')}/${dataMatch[1].padStart(2,'0')}/${dataMatch[3]}`
+    : null;
+
   const hostMatch = linha.match(/\s([a-zA-Z0-9\-]+)\s+Interface/);
   if (!hostMatch) return null;
   const host = hostMatch[1];
@@ -36,7 +57,7 @@ function extrairDadosConvencional(linha) {
   const cliMatch = linha.match(/CLI:\s*([^\s#\)]+)/);
   if (cliMatch) cli = cliMatch[1];
 
-  return { host, interfaceName, cli, horario };
+  return { host, interfaceName, cli, horario, data };
 }
 
 function ordenarInterfaceConvencional(interfaceName) {
@@ -62,24 +83,31 @@ function processarAlarmes(texto) {
   texto.split('\n').forEach((linha) => {
     const resultado = extrairDadosConvencional(linha.trim());
     if (!resultado) return;
-    const { host, interfaceName, cli, horario } = resultado;
+    const { host, interfaceName, cli, horario, data } = resultado;
     hosts.add(host);
     todasInterfaces.push(resultado);
     if (!dados[host]) dados[host] = [];
-    dados[host].push({ interfaceName, cli, horario });
+    dados[host].push({ interfaceName, cli, horario, data });
   });
 
   if (Object.keys(dados).length === 0) return 'Nenhum alarme válido encontrado.';
 
   const equipamentos = Array.from(hosts).sort().join(', ');
-  const horarioPrincipal = todasInterfaces[0]?.horario || '--:--:--';
+  const primeiroItem = todasInterfaces[0];
+  const horarioPrincipal = primeiroItem?.horario || '--:--:--';
+
+  // Se não há data no alarme, usa a data atual do sistema
+  const hoje = new Date();
+  const dataHoje = `${String(hoje.getDate()).padStart(2,'0')}/${String(hoje.getMonth()+1).padStart(2,'0')}/${hoje.getFullYear()}`;
+  const dataPrincipal = primeiroItem?.data || dataHoje;
+  const dataHoraConv  = `${dataPrincipal} ${horarioPrincipal} BRT`;
 
   let saida = `-:CARIMBO DE ABERTURA - NOC:-.
 Falha: Indisponibilidade em rede convencional/metro
 Equipamento:
 ${equipamentos}
 Alarme: loss
-Data/Hora: ${horarioPrincipal} BRT
+Data/Hora: ${dataHoraConv}
 IP: XXXXXXXXXXXXXXX
 
 Fone NOC 3318-7890
@@ -421,7 +449,6 @@ const IGNORAR_INFRA = [
   /^-?\d+[\.,]\d+v/i,
   /^bat\s+\d/i,
   /^\d+h\d+/i,
-  /^\d{1,2}\/\d{1,2}\/\d{4}/,
   /^\d{1,2} de /i,
   /brt$/i,
 ];
@@ -436,6 +463,25 @@ function isEquipamentoInfra(str) {
   return EQUIP_REGEX.test(str) || EQUIP_PAREN.test(str);
 }
 
+// Meses em português abreviados → número
+const MESES_PT = {
+  jan: '01', fev: '02', mar: '03', abr: '04', mai: '05', jun: '06',
+  jul: '07', ago: '08', set: '09', out: '10', nov: '11', dez: '12',
+};
+
+// Extrai data/hora do campo: "15 de mai. de 2026 06:41:39 BRT"
+// (aparece após o comentário HTML <!--timestamp-->)
+function extrairDataHoraInfra(texto) {
+  // Remove comentários HTML para limpar o campo antes de parsear
+  const limpo = texto.replace(/<!--.*?-->/g, ' ');
+  const m = limpo.match(/(\d{1,2})\s+de\s+([a-záéíóúâêôãõü]+)\.?\s+de\s+(\d{4})\s+(\d{2}:\d{2}:\d{2})\s*BRT/i);
+  if (!m) return '';
+  const [, dia, mesRaw, ano, hora] = m;
+  const mesKey = mesRaw.toLowerCase().replace(/[^a-z]/g, '').slice(0, 3);
+  const mes = MESES_PT[mesKey] || '??';
+  return `${dia.padStart(2,'0')}/${mes}/${ano} ${hora} BRT`;
+}
+
 function gerarCarimboInfra(texto) {
   try {
     const textoLimpo = texto.replace(/<!--.*?-->/g, '').trim();
@@ -445,6 +491,9 @@ function gerarCarimboInfra(texto) {
     let ip = '';
     let alarme = '';
     let equipIdx = -1;
+
+    // Extrai data/hora do texto bruto (antes de remover os comentários HTML)
+    const dataHora = extrairDataHoraInfra(texto);
 
     // 1ª passagem: encontra equipamento pelo padrão de nome
     for (let i = 0; i < partes.length; i++) {
@@ -469,7 +518,7 @@ function gerarCarimboInfra(texto) {
 
     if (!alarme) return null;
 
-    return `.-:CARIMBO DE ABERTURA - NOC:-.\nFalha de infraestrutura em ${equipamento}\nEquipamento: ${equipamento}\nAlarme: ${alarme}\nData/Hora: \nIP: ${ip}\nInterface: N/A`;
+    return `.-:CARIMBO DE ABERTURA - NOC:-.\nFalha de infraestrutura em ${equipamento}\nEquipamento: ${equipamento}\nAlarme: ${alarme}\nData/Hora: ${dataHora}\nIP: ${ip}\nInterface: N/A`;
   } catch (e) {
     return null;
   }
@@ -582,7 +631,7 @@ export default function App() {
   const [entradaInfra, setEntradaInfra]       = useState('');
   const [resultadoInfra, setResultadoInfra]   = useState('');
   const [statusInfra, setStatusInfra]         = useState('// pronto para receber alarme');
-  const [statusTipoInfra, setStatusTipoInfra] = useState('idle'); // idle | ok | err | copied
+  const [statusTipoInfra, setStatusTipoInfra] = useState('idle');
   const [copiadoInfra, setCopiadoInfra]       = useState(false);
 
   // Óptica handlers
@@ -662,7 +711,6 @@ export default function App() {
     copied: '#ffd700',
   }[statusTipoInfra] || '#2a5080';
 
-  // ── ESTILOS (idênticos ao original)
   const s = {
     wrap: {
       position: 'relative', minHeight: '100vh', width: '100vw',
